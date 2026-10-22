@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cyberdeck Circuits</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;600&display=swap">
+<style>
+/* Layout: one console column. Header bar, breadboard + instrument rack, assistant terminal, control strip.
+   Deliberately single-theme: a dark phosphor CRT world. */
+:root {
+  --bg: #040806;
+  --panel: #07110b;
+  --line: #1a3a25;
+  --fg: #a8f5a2;
+  --dim: #5a9466;
+  --neon: #39ff14;
+  --amber: #ffb000;
+  --red: #ff4d4d;
+  --cyan: #5ee6ff;
+  --copper: #1f7a3a;
+  --font-display: "VT323", "IBM Plex Mono", ui-monospace, monospace;
+  --font-body: "IBM Plex Mono", "IBM Plex Sans Thai", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--bg); }
+body {
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 32px;
+  min-height: 100%;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
+  background: repeating-linear-gradient(0deg, rgba(57,255,20,.05) 0 1px, transparent 1px 3px);
+}
+button { font: inherit; color: inherit; background: none; cursor: pointer; }
+button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+button:disabled { opacity: .4; cursor: not-allowed; }
+
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+/* header */
+.bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  border: 1px solid var(--line); background: var(--panel); padding: 10px 16px; border-radius: 4px;
+}
+.brand { font-family: var(--font-display); font-size: 32px; line-height: 1; color: var(--neon); letter-spacing: .08em; text-shadow: 0 0 10px rgba(57,255,20,.6); }
+.sub { font-size: 12px; color: var(--amber); letter-spacing: .12em; text-transform: uppercase; }
+.sub .ok { color: var(--neon); }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; }
+.chip { border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; letter-spacing: .08em; min-height: 36px; }
+.chip:hover { border-color: var(--dim); }
+.chip.on { border-color: var(--amber); color: var(--amber); background: rgba(255,176,0,.08); }
+.counter { color: var(--dim); }
+.counter b { color: var(--amber); font-weight: 600; }
+
+/* menu */
+.hero { padding: 28px 0 8px; display: flex; flex-direction: column; gap: 8px; }
+.hero h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(48px, 10vw, 96px); line-height: .9; color: var(--neon); text-shadow: 0 0 18px rgba(57,255,20,.55); text-wrap: balance; }
+.hero p { margin: 0; max-width: 62ch; color: var(--fg); }
+.hero .tag { color: var(--amber); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.chapter { border: 1px solid var(--line); background: var(--panel); border-radius: 4px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.chapter h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 28px; color: var(--amber); letter-spacing: .06em; }
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.lvl { text-align: left; border: 1px solid var(--line); border-radius: 4px; padding: 14px; display: flex; flex-direction: column; gap: 6px; min-height: 140px; background: rgba(57,255,20,.02); }
+.lvl:hover:not(:disabled) { border-color: var(--neon); box-shadow: 0 0 16px rgba(57,255,20,.2); }
+.lvl .code { font-family: var(--font-display); font-size: 22px; color: var(--neon); }
+.lvl .name { font-weight: 600; }
+.lvl .what { font-size: 13px; color: var(--dim); }
+.lvl .state { margin-top: auto; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
+.lvl .state.ok { color: var(--neon); }
+
+/* game */
+.grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { border: 1px solid var(--line); background: var(--panel); border-radius: 4px; padding: 12px; min-width: 0; }
+.panel h3 { margin: 0 0 8px; font-size: 11px; font-weight: 400; color: var(--dim); letter-spacing: .14em; text-transform: uppercase; }
+.boardbox { position: relative; transition: border-color .3s, box-shadow .3s; }
+.boardbox.lit { border-color: rgba(57,255,20,.6); box-shadow: 0 0 26px rgba(57,255,20,.18); }
+.boardbox.fault { border-color: rgba(255,77,77,.6); box-shadow: 0 0 26px rgba(255,77,77,.2); }
+.boardhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.status { font-size: 11px; letter-spacing: .12em; border: 1px solid; border-radius: 3px; padding: 2px 8px; }
+.status.OPEN { color: var(--amber); border-color: var(--amber); }
+.status.CLOSED { color: var(--neon); border-color: var(--neon); }
+.status.FAULT { color: var(--red); border-color: var(--red); }
+.board { width: 100%; height: auto; display: block; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.board [data-action] { cursor: pointer; outline: none; }
+.board [data-action]:focus-visible .hit { stroke: var(--cyan); stroke-width: 2; stroke-dasharray: 4 4; }
+.note { font-size: 11px; color: var(--dim); margin: 6px 0 0; }
+.side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.tray { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.part { border: 1px solid var(--line); border-radius: 4px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 92px; }
+.part:hover:not(:disabled) { border-color: var(--dim); }
+.part.sel { border-color: var(--amber); color: var(--amber); background: rgba(255,176,0,.08); box-shadow: 0 0 12px rgba(255,176,0,.25); }
+.part b { font-size: 12px; letter-spacing: .08em; }
+.part small { font-size: 11px; opacity: .8; }
+
+.meter dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.meter dt { color: var(--dim); }
+.meter dd { margin: 0; text-align: right; }
+.meter dd.hot { color: var(--red); font-weight: 600; }
+.meter dd.good { color: var(--neon); font-weight: 600; }
+.gauge { margin-top: 8px; height: 12px; border: 1px solid var(--line); border-radius: 2px; background: #031006; overflow: hidden; }
+.gauge i { display: block; height: 100%; background: var(--neon); transition: width .3s; }
+.gauge i.hot { background: var(--red); }
+.scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--dim); margin-top: 2px; }
+.warn { color: var(--red); font-weight: 600; font-size: 12px; margin: 4px 0 0; }
+
+.law { border-color: rgba(255,176,0,.35); color: var(--amber); }
+.law h3 { color: #a07a1c; }
+.law .big { font-family: var(--font-display); font-size: 40px; text-align: center; line-height: 1; text-shadow: 0 0 10px rgba(255,176,0,.5); }
+.law p { margin: 6px 0 0; text-align: center; font-size: 12px; }
+
+.term { min-height: 190px; background: #020503; cursor: pointer; }
+.term .lines { display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.term p { margin: 0; white-space: pre-line; max-width: 90ch; }
+.term p.old { opacity: .38; }
+.t-info { color: var(--fg); } .t-hint { color: var(--cyan); } .t-warn { color: var(--amber); }
+.t-error { color: var(--red); } .t-success { color: var(--neon); text-shadow: 0 0 6px rgba(57,255,20,.35); }
+.caret { animation: caret .9s steps(1) infinite; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn { flex: 1 1 150px; min-height: 54px; border: 2px solid var(--line); border-radius: 4px; font-weight: 600; letter-spacing: .1em; }
+.btn:hover:not(:disabled) { background: rgba(57,255,20,.06); }
+.btn.sw { border-color: var(--amber); color: var(--amber); }
+.btn.sw.on { border-color: var(--neon); color: var(--neon); background: rgba(57,255,20,.1); box-shadow: 0 0 14px rgba(57,255,20,.35); }
+.btn.reset.alert { border-color: var(--red); color: var(--red); background: rgba(255,77,77,.08); animation: pulse 1.4s ease-in-out infinite; }
+.btn.bp { border-color: rgba(94,230,255,.6); color: var(--cyan); }
+.btn.next { border-color: var(--neon); color: var(--bg); background: var(--neon); box-shadow: 0 0 18px rgba(57,255,20,.5); }
+.btn.next:hover { background: #6bff4f; }
+
+/* svg animation */
+.w { stroke: var(--copper); stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.flow { fill: none; stroke: var(--neon); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 8 12; animation: flow .9s linear infinite; }
+.flow.fast { stroke: var(--red); animation-duration: .12s; }
+.blink { animation: blink 1.2s steps(2) infinite; }
+.flicker { animation: flicker .15s linear infinite; }
+.smoke { transform-box: fill-box; transform-origin: center; animation: smoke 2.4s ease-out infinite; }
+.shake { animation: shake .12s linear infinite; }
+.lever { transition: transform .18s ease-out; transform-origin: 220px 80px; }
+@keyframes flow { to { stroke-dashoffset: -40; } }
+@keyframes blink { 50% { opacity: .25; } }
+@keyframes flicker { 0%,100% { opacity: 1; } 30% { opacity: .4; } 60% { opacity: .9; } 80% { opacity: .2; } }
+@keyframes smoke { 0% { transform: translateY(0) scale(.6); opacity: .7; } 100% { transform: translateY(-60px) scale(1.8); opacity: 0; } }
+@keyframes shake { 0%,100% { transform: translate(0,0); } 25% { transform: translate(-3px,2px); } 50% { transform: translate(3px,-2px); } 75% { transform: translate(-2px,-1px); } }
+@keyframes caret { 50% { opacity: 0; } }
+@keyframes pulse { 50% { box-shadow: 0 0 16px rgba(255,77,77,.5); } }
+@media (prefers-reduced-motion: reduce) {
+  .flow, .blink, .flicker, .smoke, .shake, .caret, .btn.reset.alert { animation: none !important; }
+  .lever, .gauge i { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app"></div>
+
+<script>
+(() => {
+  /* ================= physics (simplified for teaching) ================= */
+  const SUPPLY_V = 3.3, LED_VF = 2.0, LED_MAX_MA = 20, SURGE_MS = 900;
+  const PARTS = {
+    wire: { name: "JUMPER WIRE", ohms: 0.1, spec: "≈0.1Ω" },
+    resistor: { name: "RESISTOR", ohms: 330, spec: "330Ω ±5%" },
+  };
+  const milliAmps = (ohms) => ((SUPPLY_V - LED_VF) / ohms) * 1000;
+  const fmtI = (mA) => (mA >= 1000 ? (mA / 1000).toFixed(1) + " A" : mA.toFixed(1) + " mA");
+
+  const LEVELS = {
+    1: { code: "LV.1", name: "The Switch", th: "วงจรปิด / วงจรเปิด", en: "Open vs. closed circuits" },
+    2: { code: "LV.2", name: "The Resistor", th: "กฎของโอห์มและความปลอดภัยของ LED", en: "Ohm's law and LED safety" },
+  };
+
+  /* ================= assistant terminal script ================= */
+  const MSG = {
+    l1intro: { t: "info",
+      th: "> ภารกิจ 1-1: สวิตช์ (THE SWITCH)\nไฟฟ้าจะไหลได้ต้องมี 'วงจรปิด' คือเส้นทางครบรอบจาก 3V3 ผ่าน LED กลับไปที่ GND\nตอนนี้สวิตช์ SW1 ยกขึ้นอยู่ วงจรจึงขาด แตะที่สวิตช์เพื่อปิดวงจร",
+      en: "> MISSION 1-1: THE SWITCH\nCurrent only flows through a CLOSED circuit: a complete loop from 3V3, through the LED, back to GND.\nSW1 is lifted, so the loop is broken. Tap the switch to close it." },
+    l1on: { t: "success",
+      th: "✔ วงจรปิดแล้ว! กระแสไหล 3V3 → SW1 → LED → GND\nโมดูล LED ด่านนี้มีตัวต้านทานในตัว กระแสจึงอยู่ที่ราว 3.9mA ปลอดภัย\nสวิตช์ทำแค่ 'ต่อ' หรือ 'ตัด' เส้นทาง ต่อไปขา GPIO ของ ESP32 จะทำหน้าที่คล้ายๆ สวิตช์นี้ แต่สั่งด้วยโค้ด",
+      en: "✔ Circuit closed! Current flows 3V3 → SW1 → LED → GND.\nThis LED module has a built-in resistor, so the current sits at a safe ≈3.9mA.\nA switch only connects or breaks the path. Later, an ESP32 GPIO pin will do the same job, controlled by code." },
+    l1off: { t: "info",
+      th: "ตัดวงจรแล้ว เส้นทางขาด กระแส = 0 LED จึงดับ",
+      en: "Circuit broken. No path, current = 0, so the LED goes dark." },
+    l1bp: { t: "hint",
+      th: "💡 BLUEPRINT: กระแสต้องมีเส้นทางครบรอบถึงจะไหล ช่องที่ขาดอยู่คือสวิตช์ SW1\nกำลังกดสวิตช์ลงเพื่อปิดวงจรให้...",
+      en: "💡 BLUEPRINT: current needs a complete loop. The only break is at SW1.\nPressing the switch down to close the loop..." },
+    l2intro: { t: "info",
+      th: "> ภารกิจ 1-2: ตัวต้านทาน (THE RESISTOR)\nด่านที่แล้ว LED มีตัวต้านทานในตัว ด่านนี้เป็น LED เปล่าๆ\nมีช่องว่าง [GAP] ระหว่างสวิตช์กับ LED เลือกชิ้นส่วนจากถาด PARTS มาวาง แล้วเปิดสวิตช์ทดสอบ\nลองผิดได้เต็มที่ ที่นี่คือแล็บของเรา",
+      en: "> MISSION 1-2: THE RESISTOR\nLast level's LED had a built-in resistor. This one is a bare LED.\nThere's a [GAP] between the switch and the LED. Pick a part from the PARTS tray, then flip the switch.\nMistakes are welcome here. This is your lab." },
+    gapHint: { t: "hint",
+      th: "ช่องว่างยังว่างอยู่ แตะชิ้นส่วนในถาด PARTS เพื่อวางลงตรงนี้",
+      en: "The gap is empty. Tap a part in the PARTS tray to drop it here." },
+    placedWire: { t: "info",
+      th: "วาง 'สายไฟ' แล้ว สายไฟมีความต้านทานแทบเป็นศูนย์ (≈0.1Ω)\nลองคิดดู: ถ้าไม่มีอะไรจำกัด กระแสที่ไหลผ่าน LED จะมากแค่ไหน? เปิดสวิตช์ดูได้เลย",
+      en: "Wire placed. A wire has almost zero resistance (≈0.1Ω).\nWith nothing to limit it, how much current will rush through the LED? Flip the switch to find out." },
+    placedResistor: { t: "info",
+      th: "วาง 'ตัวต้านทาน 330Ω' แล้ว\nอ่านแถบสี: ส้ม(3) ส้ม(3) น้ำตาล(×10) = 330Ω, ทอง = คลาดเคลื่อน ±5%\nเปิดสวิตช์ทดสอบได้เลย",
+      en: "Resistor placed: 330Ω.\nRead the bands: Orange(3) Orange(3) Brown(×10) = 330Ω, Gold = ±5% tolerance.\nFlip the switch to test." },
+    removed: { t: "info", th: "ถอดชิ้นส่วนออกแล้ว ช่องว่างเปิดอีกครั้ง", en: "Part removed. The gap is open again." },
+    powerDownFirst: { t: "warn",
+      th: "ปิดสวิตช์ก่อนเปลี่ยนชิ้นส่วนนะ ตัดไฟก่อนแก้วงจรทุกครั้ง นิสัยนี้ช่วยรักษาบอร์ด ESP32 ของจริงได้",
+      en: "Switch OFF before swapping parts. Always power down before you rewire; that habit saves real ESP32 boards." },
+    replaceFirst: { t: "warn",
+      th: "LED ตัวนี้ไหม้ไปแล้ว กด [REPLACE LED] เพื่อเปลี่ยนตัวใหม่ก่อนนะ",
+      en: "This LED is already burnt. Press [REPLACE LED] to install a fresh one first." },
+    openGap: { t: "warn",
+      th: "สวิตช์เปิดแล้ว แต่ไม่มีกระแสไหล เพราะวงจรยังขาดตรงช่องว่าง\nกระแสต้องมีเส้นทางครบรอบจาก 3V3 กลับไปที่ GND วางชิ้นส่วนลงในช่องว่างก่อน",
+      en: "Switch is ON but nothing flows. The loop is still broken at the gap.\nCurrent needs a complete path from 3V3 back to GND. Place a part first." },
+    surge: { t: "error", th: "!! กระแสพุ่งสูง !! ไม่มีอะไรจำกัดกระแสเลย...", en: "!! CURRENT SURGE !! Nothing is limiting the current..." },
+    blown: { t: "error",
+      th: "💥 LED ไหม้แล้ว ไม่เป็นไรเลย วิศวกรทุกคนเคยเผา LED มาแล้วทั้งนั้น!\nทำไมถึงไหม้? LED ใช้แรงดันไปแค่ราว 2.0V ส่วนที่เหลือ 1.3V ไม่มีอะไรรับไว้นอกจากสายไฟ (≈0.1Ω)\nกฎของโอห์ม: I = V ÷ R = 1.3V ÷ 0.1Ω ≈ 13A (ตามทฤษฎี) ของจริงแหล่งจ่าย 3V3 จะถึงขีดจำกัดก่อน แต่ยังไงก็เกิน 20mA ที่ LED ทนได้หลายเท่า\n→ กด [REPLACE LED] แล้วลองหาชิ้นส่วนที่ 'จำกัดกระแส' ได้",
+      en: "💥 The LED burned out. That's fine; every engineer has fried a few!\nWhy? The LED only uses about 2.0V. The leftover 1.3V had nothing to push against except a wire (≈0.1Ω).\nOhm's law: I = V ÷ R = 1.3V ÷ 0.1Ω ≈ 13A in theory. A real 3V3 supply hits its own limit first, but either way it's far beyond the LED's 20mA max.\n→ Press [REPLACE LED] and try a part that can LIMIT current." },
+    success: { t: "success",
+      th: "✔ LED ONLINE เยี่ยมมาก!\nตัวต้านทานรับแรงดันส่วนเกิน 1.3V ไว้และจำกัดกระแส: I = 1.3V ÷ 330Ω ≈ 3.9mA ต่ำกว่าขีดจำกัด 20mA อย่างปลอดภัย\nจำไว้ใช้กับโปรเจกต์ ESP32: LED ทุกดวงต้องมีตัวต้านทานต่ออนุกรม (บนไฟ 3V3 ใช้ราว 220Ω–1kΩ)",
+      en: "✔ LED ONLINE. Great work, operator!\nThe resistor takes the extra 1.3V and limits the current: I = 1.3V ÷ 330Ω ≈ 3.9mA, safely under the LED's 20mA max.\nCarry this to your ESP32 builds: every LED needs a series resistor (≈220Ω–1kΩ on 3V3)." },
+    switchOff: { t: "info", th: "ปิดสวิตช์ วงจรเปิด กระแส = 0", en: "Switch OFF. Circuit open, current = 0." },
+    blownOff: { t: "info", th: "ปิดสวิตช์แล้ว กด [REPLACE LED] เพื่อเปลี่ยน LED ตัวใหม่", en: "Switch OFF. Press [REPLACE LED] to install a fresh LED." },
+    alreadyBlown: { t: "warn",
+      th: "LED ที่ไหม้แล้วจะขาดข้างใน กลายเป็น 'วงจรเปิด' กระแสจึงไม่ไหลอีก กด [REPLACE LED] ก่อนนะ",
+      en: "A burnt LED is broken inside, so it acts like a gap in the circuit and no current flows. Press [REPLACE LED] first." },
+    reset: { t: "info", th: "รีเซ็ตวงจรแล้ว ลองประกอบเองอีกรอบ", en: "Circuit reset. Build it yourself." },
+    replaced: { t: "hint",
+      th: "ติดตั้ง LED ตัวใหม่แล้ว ✔ ช่องว่างว่างอีกครั้ง\nคำใบ้: ชิ้นส่วนไหนที่ 'ต้านทาน' การไหลของกระแสได้?",
+      en: "Fresh LED installed ✔ The gap is clear again.\nHint: which part RESISTS the flow of current?" },
+    l2bp: { t: "hint",
+      th: "💡 BLUEPRINT: กำลังเดินวงจรอัตโนมัติ...\nเป้าหมายกระแสราว 4mA: R = (V_supply − V_led) ÷ I = (3.3 − 2.0) ÷ 0.004 ≈ 325Ω → เลือกค่ามาตรฐานที่ใกล้ที่สุด = 330Ω\nวางต่ออนุกรมกับ LED แล้วเปิดสวิตช์...",
+      en: "💡 BLUEPRINT: auto-routing...\nTarget ≈4mA: R = (V_supply − V_led) ÷ I = (3.3 − 2.0) ÷ 0.004 ≈ 325Ω → nearest standard value = 330Ω.\nPlacing it in series with the LED, then closing the switch..." },
+    bpDone: { t: "success",
+      th: "✔ วงจรทำงานแล้ว ดูมัลติมิเตอร์: กระแสอยู่ในโซนปลอดภัย\nลองกด [RESET] แล้วทำเองอีกรอบ ทำเองหนึ่งครั้งจำได้นานกว่าดูสิบครั้ง",
+      en: "✔ Circuit online. Check the multimeter: the current is in the safe zone.\nNow press [RESET] and do it yourself once. Doing beats watching." },
+    chapterDone: { t: "success",
+      th: "★ จบบทที่ 1 แล้ว! คุณรู้จักวงจรปิด และรู้ว่าทำไม LED ต้องมีตัวต้านทาน\nบทต่อไปกำลังสร้างอยู่",
+      en: "★ Chapter 1 complete! You know closed circuits, and why every LED needs a resistor.\nThe next chapter is under construction." },
+  };
+
+  /* ================= state ================= */
+  const S = {
+    screen: "menu", level: 1, switchOn: false, part: null, led: "off", auto: false,
+    lang: "th", music: false, burned: 0, cleared: {}, log: [], typed: 0,
+  };
+  let nextId = 1, typer = null;
+  const timers = [];
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+  const clearTimers = () => timers.splice(0).forEach(clearTimeout);
+
+  // per-viewer progress (optional: works without storage)
+  const KEY = "cyberdeck-circuits:v1";
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || "{}");
+    if (saved.lang === "en" || saved.lang === "th") S.lang = saved.lang;
+    if (saved.cleared && typeof saved.cleared === "object") S.cleared = saved.cleared;
+    if (Number.isFinite(saved.burned)) S.burned = saved.burned;
+  } catch (e) { /* storage unavailable */ }
+  const save = () => {
+    try { localStorage.setItem(KEY, JSON.stringify({ lang: S.lang, cleared: S.cleared, burned: S.burned })); } catch (e) { /* ignore */ }
+  };
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const app = document.getElementById("app");
+
+  /* ================= derived ================= */
+  const busy = () => S.led === "surge" || S.auto;
+  const conducting = () => S.switchOn && (S.level === 1 || S.part !== null) && (S.led === "on" || S.led === "surge");
+  const current = () => {
+    if (!conducting()) return 0;
+    return milliAmps(S.level === 1 ? 330 : PARTS[S.part].ohms);
+  };
+  const status = () => (S.led === "blown" ? "FAULT" : conducting() ? "CLOSED" : "OPEN");
+
+  /* ================= terminal ================= */
+  function say(key) {
+    S.log = [...S.log, { id: nextId++, key }].slice(-5);
+    S.typed = 0;
+    renderTerminal();
+    startTyping();
+  }
+  const latestText = () => MSG[S.log[S.log.length - 1].key][S.lang];
+  function startTyping() {
+    clearInterval(typer);
+    typer = setInterval(() => {
+      const full = latestText();
+      S.typed = Math.min(S.typed + 2, full.length);
+      const el = document.getElementById("typing");
+      if (el) el.textContent = full.slice(0, S.typed);
+      if (S.typed >= full.length) clearInterval(typer);
+    }, 18);
+  }
+  function terminalHTML() {
+    return S.log.map((e, i) => {
+      const m = MSG[e.key];
+      const last = i === S.log.length - 1;
+      if (!last) return `<p class="old t-${m.t}">${esc(m[S.lang])}</p>`;
+      return `<p class="t-${m.t}"><span id="typing">${esc(m[S.lang].slice(0, S.typed))}</span><span class="caret">▌</span></p>`;
+    }).join("");
+  }
+  function renderTerminal() {
+    const box = document.getElementById("lines");
+    if (box) box.innerHTML = terminalHTML();
+  }
+
+  /* ================= circuit drawing (viewBox 0 0 800 380) ================= */
+  const LOOP = "M100 150 V80 H680 V320 H100";
+  function boardSVG() {
+    const l2 = S.level === 2, led = S.led, on = S.switchOn;
+    const ledFill = led === "on" ? "#39ff14" : led === "surge" ? "#fffbe6" : led === "blown" ? "#3b0a0a" : "#040806";
+    const ledStroke = led === "blown" ? "#ff4d4d" : "#39ff14";
+    let s = `<svg viewBox="0 0 800 380" class="board" role="img" aria-label="Circuit board">
+      <defs>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="bloom" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="14"/></filter>
+        <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#39ff14" opacity=".12"/></pattern>
+      </defs>
+      <rect width="800" height="380" fill="url(#dots)"/>
+      <g class="w"><path d="M100 150 V80 H220"/>${l2 ? `<path d="M300 80 H380"/><path d="M520 80 H680 V160"/>` : `<path d="M300 80 H680 V160"/>`}<path d="M680 240 V320 H100"/></g>`;
+
+    if (conducting()) s += `<path d="${LOOP}" class="flow ${led === "surge" ? "fast" : ""}" filter="url(#glow)"/>`;
+
+    // 3V3 source
+    s += `<rect x="50" y="150" width="100" height="50" rx="6" fill="#040806" stroke="#ffb000" stroke-width="2"/>
+      <text x="100" y="183" text-anchor="middle" fill="#ffb000" font-size="22" font-family="VT323, monospace">3V3</text>
+      <text x="140" y="168" text-anchor="middle" fill="#ffb000" font-size="14">+</text>
+      <text x="100" y="222" text-anchor="middle" fill="#a07a1c" font-size="11" font-family="IBM Plex Mono, monospace">POWER</text>`;
+    // GND
+    s += `<g stroke="#39ff14" stroke-width="3" stroke-linecap="round"><line x1="100" y1="320" x2="100" y2="330"/><line x1="80" y1="330" x2="120" y2="330"/><line x1="87" y1="338" x2="113" y2="338"/><line x1="94" y1="346" x2="106" y2="346"/></g>
+      <text x="100" y="370" text-anchor="middle" fill="#39ff14" font-size="12" font-family="IBM Plex Mono, monospace">GND</text>`;
+
+    // switch
+    s += `<g data-action="switch" tabindex="0" role="button" aria-pressed="${on}" aria-label="Main switch SW1, ${on ? "on" : "off"}">
+      <rect class="hit" x="200" y="30" width="120" height="82" rx="6" fill="transparent" stroke="none"/>
+      <circle cx="220" cy="80" r="6" fill="#040806" stroke="#39ff14" stroke-width="3"/>
+      <circle cx="300" cy="80" r="6" fill="#040806" stroke="#39ff14" stroke-width="3"/>
+      <line class="lever" x1="220" y1="80" x2="298" y2="80" stroke="${on ? "#39ff14" : "#ffb000"}" stroke-width="5" stroke-linecap="round" style="transform: rotate(${on ? 0 : -30}deg)" ${on ? 'filter="url(#glow)"' : ""}/>
+      <text x="260" y="128" text-anchor="middle" fill="${on ? "#39ff14" : "#ffb000"}" font-size="12" font-family="IBM Plex Mono, monospace">SW1 [${on ? "ON" : "OFF"}]</text>
+    </g>`;
+
+    // gap (level 2 only)
+    if (l2) {
+      s += `<g data-action="gap" tabindex="0" role="button" aria-label="${S.part ? "Gap filled with " + PARTS[S.part].name + ", tap to remove" : "Empty gap"}">
+        <rect class="hit" x="375" y="35" width="150" height="80" rx="6" fill="transparent" stroke="none"/>
+        <circle cx="380" cy="80" r="4" fill="#39ff14"/><circle cx="520" cy="80" r="4" fill="#39ff14"/>`;
+      if (!S.part) {
+        s += `<g class="blink"><rect x="392" y="56" width="116" height="48" rx="4" fill="none" stroke="#ffb000" stroke-width="2" stroke-dasharray="6 6"/>
+          <text x="450" y="86" text-anchor="middle" fill="#ffb000" font-size="16" font-family="VT323, monospace">[ GAP ]</text></g>`;
+      } else if (S.part === "wire") {
+        s += `<line x1="380" y1="80" x2="520" y2="80" stroke="#c2410c" stroke-width="5" stroke-linecap="round"/>
+          <text x="450" y="60" text-anchor="middle" fill="#fb923c" font-size="12" font-family="IBM Plex Mono, monospace">WIRE ≈0.1Ω</text>`;
+      } else {
+        s += `<line x1="380" y1="80" x2="418" y2="80" stroke="#9ca3af" stroke-width="3"/><line x1="482" y1="80" x2="520" y2="80" stroke="#9ca3af" stroke-width="3"/>
+          <rect x="415" y="67" width="70" height="26" rx="10" fill="#d6c29a" stroke="#8b7355" stroke-width="1.5"/>
+          <rect x="426" y="67" width="6" height="26" fill="#f97316"/><rect x="438" y="67" width="6" height="26" fill="#f97316"/>
+          <rect x="450" y="67" width="6" height="26" fill="#7c3f12"/><rect x="470" y="67" width="6" height="26" fill="#d4a017"/>
+          <text x="450" y="56" text-anchor="middle" fill="#ffb000" font-size="13" font-weight="600" font-family="IBM Plex Mono, monospace">R1 330Ω</text>`;
+      }
+      s += `</g>`;
+    }
+
+    // LED
+    if (led === "on") s += `<circle cx="680" cy="198" r="40" fill="#39ff14" opacity=".55" filter="url(#bloom)"/>`;
+    if (led === "surge") s += `<circle cx="680" cy="198" r="60" fill="#fff7cc" opacity=".9" filter="url(#bloom)" class="flicker"/>`;
+    s += `<line x1="680" y1="160" x2="680" y2="180" stroke="#1f7a3a" stroke-width="4"/><line x1="680" y1="215" x2="680" y2="240" stroke="#1f7a3a" stroke-width="4"/>
+      <polygon points="658,180 702,180 680,215" fill="${ledFill}" stroke="${ledStroke}" stroke-width="3" stroke-linejoin="round" ${led === "on" ? 'filter="url(#glow)"' : ""} class="${led === "surge" ? "flicker" : ""}"/>
+      <line x1="658" y1="215" x2="702" y2="215" stroke="${ledStroke}" stroke-width="3"/>`;
+    if (led !== "blown") {
+      s += `<g stroke="${led === "on" ? "#39ff14" : "#14532d"}" stroke-width="2" fill="none"><path d="M708 186 L726 174 M720 174 H726 V180"/><path d="M708 202 L726 190 M720 190 H726 V196"/></g>`;
+    } else {
+      s += `<polyline points="668,184 678,196 672,203 684,212" stroke="#ff8a8a" stroke-width="2" fill="none"/>
+        <polyline points="694,184 686,194 692,200" stroke="#ff8a8a" stroke-width="2" fill="none"/>
+        <circle cx="672" cy="168" r="9" fill="#6b7280" opacity=".6" class="smoke"/>
+        <circle cx="688" cy="164" r="7" fill="#9ca3af" opacity=".5" class="smoke" style="animation-delay:.8s"/>
+        <circle cx="680" cy="170" r="8" fill="#4b5563" opacity=".6" class="smoke" style="animation-delay:1.6s"/>
+        <text x="680" y="264" text-anchor="middle" fill="#ff4d4d" font-size="14" font-weight="600" font-family="IBM Plex Mono, monospace">✖ BURNT</text>`;
+    }
+    const mono = 'font-family="IBM Plex Mono, monospace"';
+    s += `<text x="736" y="196" fill="${led === "blown" ? "#ff4d4d" : "#39ff14"}" font-size="13" font-weight="600" ${mono}>LED1</text>
+      <text x="736" y="212" fill="#5a9466" font-size="10" ${mono}>Vf≈2.0V</text>
+      <text x="736" y="226" fill="#5a9466" font-size="10" ${mono}>max 20mA</text>
+      ${S.level === 1 ? `<text x="736" y="240" fill="#a07a1c" font-size="10" ${mono}>+R inside</text>` : ""}
+    </svg>`;
+    return s;
+  }
+
+  /* ================= screens ================= */
+  function headerHTML() {
+    const inGame = S.screen === "game";
+    const lv = LEVELS[S.level];
+    return `<header class="bar">
+      <div>
+        <div class="brand">CYBERDECK CIRCUITS</div>
+        <div class="sub">${inGame ? `CH.1 // ${lv.code} : ${esc(lv.name)} ${S.cleared[S.level] ? '<span class="ok">[CLEARED ✔]</span>' : ""}` : "CHAPTER MAP"}</div>
+      </div>
+      <div class="tools">
+        <span class="counter">LEDs sacrificed for science: <b>${S.burned}</b></span>
+        ${inGame ? `<button class="chip" data-action="menu">◀ MAP</button>` : ""}
+        <button class="chip" data-action="lang" aria-label="Switch language">${S.lang === "th" ? "ภาษา: TH" : "LANG: EN"}</button>
+        <button class="chip ${S.music ? "on" : ""}" data-action="music" aria-pressed="${S.music}">♪ LO-FI ${S.music ? "ON" : "OFF"}</button>
+      </div>
+    </header>`;
+  }
+
+  function renderMenu() {
+    S.screen = "menu";
+    clearTimers(); clearInterval(typer);
+    const th = S.lang === "th";
+    const card = (n) => {
+      const L = LEVELS[n];
+      return `<button class="lvl" data-action="start" data-level="${n}">
+        <span class="code">${L.code}</span><span class="name">${esc(L.name)}</span>
+        <span class="what">${esc(L[S.lang])}</span>
+        <span class="state ${S.cleared[n] ? "ok" : ""}">${S.cleared[n] ? "✔ cleared · play again" : "▶ play"}</span>
+      </button>`;
+    };
+    app.innerHTML = headerHTML() + `
+      <section class="hero">
+        <span class="tag">${th ? "ฝึกวงจรก่อนลงมือประกอบหุ่นยนต์และคอมพิวเตอร์จริง" : "Practice circuits before you build real robots and PCs"}</span>
+        <h1>Boot up.<br>Wire it right.</h1>
+        <p>${th
+          ? "เกมไขปริศนาวงจรไฟฟ้า ตั้งแต่สวิตช์และ LED ไปจนถึงลอจิกเกตและการต่อสาย ESP32 ทำพลาดได้ไม่มีเกมโอเวอร์ ผู้ช่วยในเทอร์มินัลจะอธิบายว่าเกิดอะไรขึ้นทุกครั้ง"
+          : "A circuit puzzle game, from switches and LEDs up to logic gates and ESP32 wiring. Mistakes never end the game; the assistant terminal explains what happened every time."}</p>
+      </section>
+      <section class="chapter">
+        <h2>CHAPTER 1 · POWER &amp; LIGHT</h2>
+        <div class="levels">
+          ${card(1)}${card(2)}
+          <button class="lvl" disabled>
+            <span class="code">LV.3</span><span class="name">Series &amp; Parallel</span>
+            <span class="what">${th ? "ต่อ LED หลายดวง" : "Driving several LEDs"}</span>
+            <span class="state">under construction</span>
+          </button>
+        </div>
+      </section>`;
+  }
+
+  function renderGame() {
+    const I = current(), over = I > LED_MAX_MA, st = status();
+    const l2 = S.level === 2;
+    const rLabel = S.level === 1 ? "330Ω (built-in)" : S.part ? PARTS[S.part].spec : "— (gap)";
+    const pct = Math.min(I / LED_MAX_MA, 1) * 100;
+    const boxCls = S.led === "blown" ? "fault" : S.led === "on" ? "lit" : "";
+    const nextLabel = S.level === 1 ? "NEXT LEVEL ▶" : "CHAPTER COMPLETE ▶";
+
+    app.innerHTML = headerHTML() + `
+      <div class="grid">
+        <section class="panel boardbox ${boxCls} ${S.led === "surge" ? "shake" : ""}">
+          <div class="boardhead"><h3>// breadboard_view</h3><span class="status ${st}">CIRCUIT: ${st}</span></div>
+          ${boardSVG()}
+          <p class="note">${S.lang === "th" ? "แตะที่สวิตช์" + (l2 ? "หรือช่องว่าง" : "") + "ในวงจรได้โดยตรง · เส้นประเคลื่อนที่ = กระแสไหล (+ → −)" : "Tap the switch" + (l2 ? " or the gap" : "") + " on the board · moving dashes = current flowing (+ → −)"}</p>
+        </section>
+        <aside class="side">
+          ${l2 ? `<div class="panel"><h3>// parts_tray · tap to place</h3><div class="tray">
+            ${Object.entries(PARTS).map(([id, p]) => `
+              <button class="part ${S.part === id ? "sel" : ""}" data-action="place" data-part="${id}" aria-pressed="${S.part === id}" ${busy() ? "disabled" : ""}>
+                <svg viewBox="0 0 80 24" width="64" height="20" aria-hidden="true">${id === "wire"
+                  ? '<line x1="4" y1="12" x2="76" y2="12" stroke="#c2410c" stroke-width="4" stroke-linecap="round"/>'
+                  : '<line x1="2" y1="12" x2="78" y2="12" stroke="#9ca3af" stroke-width="2"/><rect x="20" y="4" width="40" height="16" rx="6" fill="#d6c29a"/><rect x="26" y="4" width="4" height="16" fill="#f97316"/><rect x="33" y="4" width="4" height="16" fill="#f97316"/><rect x="40" y="4" width="4" height="16" fill="#7c3f12"/><rect x="51" y="4" width="4" height="16" fill="#d4a017"/>'}</svg>
+                <b>${p.name}</b><small>${p.spec}</small>
+              </button>`).join("")}
+          </div></div>` : ""}
+          <div class="panel meter"><h3>// multimeter</h3>
+            <dl>
+              <dt>Supply</dt><dd>${SUPPLY_V.toFixed(1)} V</dd>
+              <dt>LED drop</dt><dd>${LED_VF.toFixed(1)} V</dd>
+              <dt>Series R</dt><dd>${rLabel}</dd>
+              <dt>Current</dt><dd class="${over ? "hot" : I > 0 ? "good" : ""}">${S.led === "blown" ? "0.0 mA (open)" : fmtI(I)}</dd>
+            </dl>
+            <div class="gauge" aria-hidden="true"><i class="${over ? "hot" : ""}" style="width:${pct}%"></i></div>
+            <div class="scale"><span>0</span><span>LED safe limit ${LED_MAX_MA} mA</span></div>
+            ${over ? '<p class="warn">⚠ OVERLOAD</p>' : ""}
+          </div>
+          <div class="panel law"><h3>// ${l2 ? "ohm's law" : "closed loop"}</h3>
+            ${l2
+              ? '<div class="big">V = I × R</div><p>I = (3.3V − 2.0V) ÷ R</p>'
+              : `<div class="big">3V3 → LED → GND</div><p>${S.lang === "th" ? "ขาดตรงไหน กระแสหยุดทั้งวง" : "Break it anywhere and the whole loop stops"}</p>`}
+          </div>
+        </aside>
+      </div>
+      <section class="panel term" data-action="skip" aria-live="polite" title="Tap to skip typing">
+        <h3>// assistant_terminal</h3>
+        <div class="lines" id="lines">${terminalHTML()}</div>
+      </section>
+      <nav class="controls">
+        <button class="btn sw ${S.switchOn ? "on" : ""}" data-action="switch" ${busy() ? "disabled" : ""}>⏻ SWITCH ${S.switchOn ? "OFF" : "ON"}</button>
+        <button class="btn reset ${S.led === "blown" ? "alert" : ""}" data-action="reset" ${S.auto ? "disabled" : ""}>${S.led === "blown" ? "↻ REPLACE LED" : "↺ RESET"}</button>
+        <button class="btn bp" data-action="blueprint" ${S.auto ? "disabled" : ""}>💡 BLUEPRINT</button>
+        ${S.cleared[S.level] ? `<button class="btn next" data-action="next">${nextLabel}</button>` : ""}
+      </nav>`;
+  }
+
+  const render = () => (S.screen === "game" ? renderGame() : renderMenu());
+
+  /* ================= actions ================= */
+  function startLevel(n) {
+    clearTimers();
+    Object.assign(S, { screen: "game", level: n, switchOn: false, part: null, led: "off", auto: false, log: [], typed: 0 });
+    renderGame();
+    say(n === 1 ? "l1intro" : "l2intro");
+    window.scrollTo({ top: 0 });
+  }
+  function clear(n) { S.cleared[n] = true; save(); }
+
+  function toggleSwitch() {
+    if (busy()) return;
+    const next = !S.switchOn;
+    S.switchOn = next;
+
+    if (S.level === 1) {
+      S.led = next ? "on" : "off";
+      if (next) clear(1);
+      renderGame();
+      return say(next ? "l1on" : "l1off");
+    }
+
+    if (!next) {
+      if (S.led !== "blown") S.led = "off";
+      renderGame();
+      return say(S.led === "blown" ? "blownOff" : "switchOff");
+    }
+    if (S.led === "blown") { renderGame(); return say("alreadyBlown"); }
+    if (!S.part) { renderGame(); return say("openGap"); }
+    if (S.part === "resistor") {
+      S.led = "on"; clear(2); renderGame();
+      return say("success");
+    }
+    // wire: nothing limits current → surge → LED pops
+    S.led = "surge"; renderGame(); say("surge");
+    if (navigator.vibrate) { try { navigator.vibrate([60, 40, 140]); } catch (e) { /* ignore */ } }
+    later(() => {
+      S.led = "blown"; S.burned += 1; save(); renderGame(); say("blown");
+    }, SURGE_MS);
+  }
+
+  function placePart(id) {
+    if (busy()) return;
+    if (S.led === "blown") return say("replaceFirst");
+    if (S.switchOn) return say("powerDownFirst");
+    S.part = id; renderGame();
+    say(id === "wire" ? "placedWire" : "placedResistor");
+  }
+
+  function tapGap() {
+    if (busy()) return;
+    if (!S.part) return say("gapHint");
+    if (S.led === "blown") return say("replaceFirst");
+    if (S.switchOn) return say("powerDownFirst");
+    S.part = null; renderGame(); say("removed");
+  }
+
+  function resetLevel() {
+    clearTimers();
+    const wasBlown = S.led === "blown";
+    Object.assign(S, { switchOn: false, part: null, led: "off", auto: false });
+    renderGame();
+    say(wasBlown ? "replaced" : S.level === 1 ? "l1off" : "reset");
+  }
+
+  function blueprint() {
+    if (S.auto) return;
+    clearTimers();
+    Object.assign(S, { auto: true, switchOn: false, part: null, led: "off" });
+    renderGame();
+    if (S.level === 1) {
+      say("l1bp");
+      later(() => { Object.assign(S, { auto: false, switchOn: true, led: "on" }); clear(1); renderGame(); say("bpDone"); }, 2000);
+      return;
+    }
+    say("l2bp");
+    later(() => { S.part = "resistor"; renderGame(); }, 1500);
+    later(() => { Object.assign(S, { auto: false, switchOn: true, led: "on" }); clear(2); renderGame(); say("bpDone"); }, 3000);
+  }
+
+  function nextStep() {
+    if (S.level === 1) return startLevel(2);
+    say("chapterDone");
+    later(renderMenu, 3200);
+  }
+
+  /* ================= lo-fi music (generated, no audio file) ================= */
+  const Music = {
+    ctx: null, out: null, noise: null, timer: null, t: 0, bar: 0,
+    BAR: 2.4,
+    CHORDS: [[57, 60, 64, 67], [53, 57, 60, 64], [60, 64, 67, 71], [55, 59, 62, 64]],
+    BASS: [45, 41, 48, 43],
+    hz: (m) => 440 * Math.pow(2, (m - 69) / 12),
+    init() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      const c = (this.ctx = new AC());
+      const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1500;
+      this.out = c.createGain(); this.out.gain.value = 0;
+      this.out.connect(lp); lp.connect(c.destination);
+      const buf = c.createBuffer(1, c.sampleRate * 0.2, c.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      this.noise = buf;
+      return true;
+    },
+    tone(type, f, t, dur, peak, attack) {
+      const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(this.out); o.start(t); o.stop(t + dur + 0.05);
+    },
+    kick(t) {
+      const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+      o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.15);
+      g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      o.connect(g); g.connect(this.out); o.start(t); o.stop(t + 0.35);
+    },
+    hat(t) {
+      const c = this.ctx, s = c.createBufferSource(), hp = c.createBiquadFilter(), g = c.createGain();
+      s.buffer = this.noise; hp.type = "highpass"; hp.frequency.value = 6000;
+      g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+      s.connect(hp); hp.connect(g); g.connect(this.out); s.start(t); s.stop(t + 0.1);
+    },
+    playBar(t) {
+      const i = this.bar++ % 4, B = this.BAR;
+      this.CHORDS[i].forEach((m) => this.tone("triangle", this.hz(m), t, B, 0.05, 0.35));
+      this.tone("sine", this.hz(this.BASS[i]), t, B * 0.9, 0.18, 0.05);
+      this.kick(t); this.kick(t + B / 2 + B / 8);
+      this.hat(t + B / 4); this.hat(t + (3 * B) / 4);
+    },
+    start() {
+      if (!this.ctx && !this.init()) return false;
+      this.ctx.resume();
+      const now = this.ctx.currentTime;
+      this.out.gain.cancelScheduledValues(now);
+      this.out.gain.setTargetAtTime(0.55, now, 0.4);
+      this.t = now + 0.1;
+      const tick = () => { while (this.t < this.ctx.currentTime + 1) { this.playBar(this.t); this.t += this.BAR; } };
+      tick(); clearInterval(this.timer); this.timer = setInterval(tick, 250);
+      return true;
+    },
+    stop() {
+      if (!this.ctx) return;
+      clearInterval(this.timer);
+      this.out.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2);
+    },
+  };
+
+  /* ================= events ================= */
+  function act(el) {
+    const a = el.dataset.action;
+    switch (a) {
+      case "start": return startLevel(Number(el.dataset.level));
+      case "menu": return renderMenu();
+      case "switch": return toggleSwitch();
+      case "gap": return tapGap();
+      case "place": return placePart(el.dataset.part);
+      case "reset": return resetLevel();
+      case "blueprint": return blueprint();
+      case "next": return nextStep();
+      case "skip": {
+        S.typed = latestText().length; clearInterval(typer);
+        const t = document.getElementById("typing"); if (t) t.textContent = latestText();
+        return;
+      }
+      case "lang":
+        S.lang = S.lang === "th" ? "en" : "th"; save(); render();
+        if (S.screen === "game") { S.typed = latestText().length; renderTerminal(); }
+        return;
+      case "music":
+        if (S.music) { Music.stop(); S.music = false; } else { S.music = Music.start(); }
+        // update just the chip so the terminal's typing isn't disturbed
+        el.classList.toggle("on", S.music); el.setAttribute("aria-pressed", S.music);
+        el.textContent = "♪ LO-FI " + (S.music ? "ON" : "OFF");
+        return;
+    }
+  }
+  app.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-action]");
+    if (el && !el.disabled) act(el);
+  });
+  app.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const el = e.target.closest("g[data-action]");
+    if (el) { e.preventDefault(); act(el); }
+  });
+
+  /* ================= boot (keeps the current level across live updates) ================= */
+  window.claude?.hot?.snapshot?.(() => ({ screen: S.screen, level: S.level }));
+  function start(data) {
+    if (data && data.screen === "game" && LEVELS[data.level]) startLevel(data.level);
+    else renderMenu();
+  }
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>
